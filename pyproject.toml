@@ -1,0 +1,29 @@
+[project]
+name = "fsrcnn"
+version = "0.1.0"
+description = "Default template for PDM package"
+authors = [
+    {name = "Sukhrob Ilyosbekov", email = "suxrobgm@gmail.com"},
+]
+dependencies = ["torch>=2.8.0", "torchvision>=0.23.0", "numpy>=2.2.6", "opencv-python>=4.12.0.88", "Pillow>=11.3.0", "tqdm>=4.67.1", "rich>=14.1.0", "scikit-image>=0.25.2"]
+requires-python = "==3.13.*"
+readme = "README.md"
+license = {text = "MIT"}
+
+[tool.pdm.scripts]
+train = "python scripts/train.py --train_dir ../data/t91/train --val_dir ../data/t91/val --scale 4 --epochs 200 --batch_size 32 --patch_size 32 --save_dir runs/fsrcnn_t91_x4"
+eval = "python scripts/eval.py --data_dir ../data/t91/val --scale 4 --weights runs/fsrcnn_t91_x4/best.ckpt"
+infer = "python scripts/infer.py --image path/to/img.png --scale 4 --weights runs/fsrcnn_t91_x4/best.ckpt --out out_x4.png"
+
+
+[tool.pdm]
+distribution = false
+
+[tool.pdm.build]
+package-dir = "src"
+includes = ["fsrcnn"]
+
+[dependency-groups]
+dev = [
+    "black>=25.9.0",
+]
