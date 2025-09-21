@@ -6,6 +6,7 @@
 # Parameters for the training script:
 # --train_dir: Path to HR training images.
 # --val_dir: Path to HR validation images.
+# --test_dir: Path to HR test images (optional).
 # --save_dir: Path to save training checkpoints. Default is "runs/fsrcnn"
 # --scale: Upscale factor (2, 3, 4). Default is 4
 # --d: Number of feature maps for the feature extraction/expanding layers. Default is 56
@@ -27,7 +28,6 @@ import torch
 import torch.nn as nn
 import random, numpy as np
 from torch.utils.data import DataLoader
-from torch import Tensor
 from tqdm import tqdm
 from rich import print
 
@@ -96,8 +96,8 @@ def train_one_epoch(
     pbar = tqdm(loader, desc="train", leave=False)
 
     for batch in pbar:
-        lr: Tensor = batch["lr"].to(device)  # [B,1,h,w]
-        hr: Tensor = batch["hr"].to(device)  # [B,1,H,W]
+        lr: torch.Tensor = batch["lr"].to(device)  # [B,1,h,w]
+        hr: torch.Tensor = batch["hr"].to(device)  # [B,1,H,W]
 
         sr = model(lr)
         loss = criterion(sr, hr)
@@ -130,8 +130,8 @@ def validate(
 
     with torch.no_grad():
         for batch in tqdm(loader, desc="val", leave=False):
-            lr: Tensor = batch["lr"].to(device)
-            hr: Tensor = batch["hr"].to(device)
+            lr: torch.Tensor = batch["lr"].to(device)
+            hr: torch.Tensor = batch["hr"].to(device)
             sr = model(lr)
 
             # Clamp to [0,1]
@@ -154,6 +154,9 @@ def main() -> None:
     )
     parser.add_argument(
         "--val_dir", type=str, required=True, help="Path to HR validation images"
+    )
+    parser.add_argument(
+        "--test_dir", type=str, default="", help="Path to HR test images (optional)"
     )
     parser.add_argument("--save_dir", type=str, default="runs/fsrcnn")
     parser.add_argument("--scale", type=int, default=4, choices=[2, 3, 4])
@@ -207,6 +210,10 @@ def main() -> None:
     )
     val_loader = make_loader(args.val_dir, args.scale, None, batch=1, shuffle=False)
 
+    test_loader = None
+    if args.test_dir and os.path.isdir(args.test_dir):
+        test_loader = make_loader(args.test_dir, args.scale, None, batch=1, shuffle=False)
+
     best_psnr = -1.0
 
     for epoch in range(1, args.epochs + 1):
@@ -214,8 +221,14 @@ def main() -> None:
         psnr_val, ssim_val = validate(model, val_loader, device, args.scale)
         scheduler.step()
 
+        # Evaluate on test set if provided
+        test_info = ""
+        if test_loader is not None:
+            psnr_test, ssim_test = validate(model, test_loader, device, args.scale)
+            test_info = f" test_psnr={psnr_test:.2f} test_ssim={ssim_test:.4f}"
+
         print(
-            f"[Epoch {epoch:03d}] loss={loss:.4f} val_psnr={psnr_val:.2f} val_ssim={ssim_val:.4f} lr={scheduler.get_last_lr()[0]:.2e}"
+            f"[Epoch {epoch:03d}] loss={loss:.4f} val_psnr={psnr_val:.2f} val_ssim={ssim_val:.4f}{test_info} lr={scheduler.get_last_lr()[0]:.2e}"
         )
 
         # Save checkpoint

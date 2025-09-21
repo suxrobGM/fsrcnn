@@ -57,8 +57,8 @@ def main():
 
     with torch.no_grad():
         for batch in tqdm(loader, desc="eval"):
-            lr = batch["lr"].to(device)
-            hr = batch["hr"].to(device)
+            lr: torch.Tensor = batch["lr"].to(device)
+            hr: torch.Tensor = batch["hr"].to(device)
             sr = torch.clamp(model(lr), 0.0, 1.0)
             sr_np = (sr.squeeze(1).cpu().numpy() * 255.0).round().astype("uint8")
             hr_np = (hr.squeeze(1).cpu().numpy() * 255.0).round().astype("uint8")
