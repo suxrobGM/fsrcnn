@@ -27,11 +27,11 @@ import torch
 import torch.nn as nn
 import random, numpy as np
 from torch.utils.data import DataLoader
+from torch import Tensor
 from tqdm import tqdm
 from rich import print
 
-# Add src directory to Python path
-sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'src'))
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from fsrcnn.models import FSRCNN
 from fsrcnn.data import SRFolderDataset
@@ -96,8 +96,8 @@ def train_one_epoch(
     pbar = tqdm(loader, desc="train", leave=False)
 
     for batch in pbar:
-        lr = batch["lr"].to(device)  # [B,1,h,w]
-        hr = batch["hr"].to(device)  # [B,1,H,W]
+        lr: Tensor = batch["lr"].to(device)  # [B,1,h,w]
+        hr: Tensor = batch["hr"].to(device)  # [B,1,H,W]
 
         sr = model(lr)
         loss = criterion(sr, hr)
@@ -130,8 +130,8 @@ def validate(
 
     with torch.no_grad():
         for batch in tqdm(loader, desc="val", leave=False):
-            lr = batch["lr"].to(device)
-            hr = batch["hr"].to(device)
+            lr: Tensor = batch["lr"].to(device)
+            hr: Tensor = batch["hr"].to(device)
             sr = model(lr)
 
             # Clamp to [0,1]
@@ -232,7 +232,7 @@ def main() -> None:
         if psnr_val > best_psnr:
             best_psnr = psnr_val
             torch.save(checkpoint, os.path.join(args.save_dir, "best.ckpt"))
-            print(f"[bold cyan]New best PSNR[/bold cyan]: {best_psnr:.2f}")
+            print(f"[bold cyan]New best PSNR[/bold cyan]: {best_psnr:.2f} dB")
 
 
 if __name__ == "__main__":

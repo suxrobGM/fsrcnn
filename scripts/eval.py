@@ -9,11 +9,15 @@
 # --scale: Upscale factor (2, 3, 4). Default is 4.
 
 from __future__ import annotations
+import os
+import sys
 import argparse
 import torch
 from torch.utils.data import DataLoader
 from tqdm import tqdm
 from rich import print
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from fsrcnn.models import FSRCNN
 from fsrcnn.data import SRFolderDataset

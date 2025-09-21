@@ -10,10 +10,14 @@
 # --out: Path to save the output SR image. Default is "sr.png"
 
 from __future__ import annotations
+import os
+import sys
 import argparse
 import numpy as np
 import torch
 import cv2
+
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
 from fsrcnn.models import FSRCNN
 from fsrcnn.utils import (
