@@ -24,8 +24,34 @@ class SRFolderDataset(Dataset):
     - Validation/Test: returns full-size LR/HR arrays (no random crops) when patch_size=None.
     """
 
+    root: str
+    """Path to the root directory containing images."""
+
+    scale: int
+    """Downscale factor (2, 3, 4)."""
+
+    patch_size: int | None
+    """LR patch size for training (HR is scale*patch)."""
+
+    repeat: int
+    """Number of times to repeat the dataset (for more iterations per epoch)."""
+
+    cache_images: bool
+    """Whether to cache images in memory for faster loading."""
+
+    paths: list[str]
+    """List of image file paths."""
+
+    _cache: dict[str, tuple[Image.Image, Image.Image]] | None
+    """Cache for loaded (LR, HR) image pairs if caching is enabled."""
+
     def __init__(
-        self, root: str, scale: int = 4, patch_size: int | None = 32, repeat: int = 1
+        self,
+        root: str,
+        scale: int = 4,
+        patch_size: int | None = 32,
+        repeat: int = 1,
+        cache_images: bool = False,
     ) -> None:
         """
         Initialize the dataset.
@@ -34,15 +60,23 @@ class SRFolderDataset(Dataset):
             scale (int): Downscale factor (2, 3, 4).
             patch_size (int | None): LR patch size for training. If None, use full image for val/test.
             repeat (int): Number of times to repeat the dataset (for more iterations per epoch).
+            cache_images (bool): Whether to cache images in memory for faster loading.
         """
         super().__init__()
         self.root = root
         self.scale = scale
         self.patch_size = patch_size
         self.repeat = repeat
+        self.cache_images = cache_images
         self.paths = self._scan(root)
+        self._cache = {} if cache_images else None
 
     def _scan(self, root: str) -> list[str]:
+        """
+        Scan the specified folder for image files.
+        Args:
+            root (str): Root directory containing images.
+        """
         out = []
         for dirpath, _, fnames in os.walk(root):
             for f in fnames:
@@ -58,18 +92,28 @@ class SRFolderDataset(Dataset):
         return len(self.paths) * self.repeat
 
     def _load_pair(self, path: str) -> tuple[Image.Image, Image.Image]:
+        # Use cache if enabled
+        if self._cache is not None and path in self._cache:
+            return self._cache[path]
+
         hr = Image.open(path).convert("RGB")
         hr_np = np.array(hr)
         hr_np = mod_crop(hr_np, self.scale)
         hr = Image.fromarray(hr_np)
         lr = bicubic_downsample(hr, self.scale)
+
+        # Cache the result if caching is enabled
+        if self._cache is not None:
+            self._cache[path] = (lr, hr)
+
         return lr, hr
 
     def _random_crop_pair(
         self, lr: Image.Image, hr: Image.Image
     ) -> tuple[np.ndarray, np.ndarray]:
         """
-        Extract random aligned patches from LR and HR images.
+        Extract random aligned patches from LR and HR images with augmentation.
+        Crops a random patch of size (patch_size x patch_size) from LR and randomly flips/rotates it.
         Args:
             lr (PIL.Image): Low-resolution image.
             hr (PIL.Image): High-resolution image.
@@ -86,14 +130,15 @@ class SRFolderDataset(Dataset):
             new_lr = lr.resize(
                 (int(w * factor) + 1, int(h * factor) + 1), Image.Resampling.BICUBIC
             )
+
             # Recreate HR by upscaling back (for alignment) – only used in rare small-image cases
-            factor_hr = int(round(factor))
             new_hr = hr.resize(
                 (new_lr.size[0] * self.scale, new_lr.size[1] * self.scale),
                 Image.Resampling.BICUBIC,
             )
             lr, hr = new_lr, new_hr
             w, h = lr.size
+
         x = random.randint(0, w - ps)
         y = random.randint(0, h - ps)
         lr_patch = lr.crop((x, y, x + ps, y + ps))
@@ -105,6 +150,25 @@ class SRFolderDataset(Dataset):
                 (y + ps) * self.scale,
             )
         )
+
+        # Data augmentation: random horizontal flip and rotation
+        if random.random() < 0.5:
+            lr_patch = lr_patch.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+            hr_patch = hr_patch.transpose(Image.Transpose.FLIP_LEFT_RIGHT)
+
+        # Random 90-degree rotations
+        rot = random.choice([0, 90, 180, 270])
+        if rot != 0:
+            if rot == 90:
+                lr_patch = lr_patch.transpose(Image.Transpose.ROTATE_90)
+                hr_patch = hr_patch.transpose(Image.Transpose.ROTATE_90)
+            elif rot == 180:
+                lr_patch = lr_patch.transpose(Image.Transpose.ROTATE_180)
+                hr_patch = hr_patch.transpose(Image.Transpose.ROTATE_180)
+            elif rot == 270:
+                lr_patch = lr_patch.transpose(Image.Transpose.ROTATE_270)
+                hr_patch = hr_patch.transpose(Image.Transpose.ROTATE_270)
+
         return np.array(lr_patch), np.array(hr_patch)
 
     def __getitem__(self, idx: int):

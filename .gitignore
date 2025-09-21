@@ -5,3 +5,7 @@ __pycache__/
 .ruff_cache/
 .pdm-python
 runs/
+
+# DIV2K dataset is large to commit
+data/div2k/*
+!data/div2k/.gitkeep

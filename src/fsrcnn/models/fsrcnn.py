@@ -26,10 +26,19 @@ class FSRCNN(nn.Module):
 
     # CNN layers
     feature: nn.Sequential
+    """Feature extraction layer (5x5 conv)."""
+
     shrink: nn.Sequential
+    """Shrinking layer (1x1 conv)."""
+
     map: nn.Sequential
+    """Mapping layers (3x3 convs)."""
+
     expand: nn.Sequential
+    """Expanding layer (1x1 conv)."""
+
     deconv: nn.ConvTranspose2d
+    """Deconvolution (transpose conv) for upsampling."""
 
     def __init__(
         self,

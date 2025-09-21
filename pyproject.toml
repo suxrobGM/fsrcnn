@@ -25,9 +25,11 @@ dev = [
 ]
 
 [tool.pdm.scripts]
-train = "python scripts/train.py --train_dir data/t91 --val_dir data/set14 --test_dir data/set5 --scale 4 --epochs 200 --batch_size 32 --patch_size 32 --save_dir runs/fsrcnn_t91_x4"
-eval = "python scripts/eval.py --data_dir data/set14 --scale 4 --weights runs/fsrcnn_t91_x4/best.ckpt"
-infer = "python scripts/infer.py --image data/test.png --scale 4 --weights runs/fsrcnn_t91_x4/best.ckpt --out out_x4.png"
+train = "python scripts/train.py --train_dir data/t91 --val_dir data/set14 --test_dir data/set5 --scale 4 --epochs 1000 --batch_size 128 --patch_size 32 --val_freq 20 --save_dir runs/fsrcnn_t91"
+train_d64_s16_m6 = "python scripts/train.py --train_dir data/t91 --val_dir data/set14 --test_dir data/set5 --scale 4 --epochs 1000 --d 64 --s 16 --m 6 --batch_size 128 --patch_size 32 --val_freq 20 --save_dir runs/fsrcnn_t91_d64_s16_m6"
+train_div2k = "python scripts/train.py --train_dir data/div2k/train --val_dir data/div2k/val --test_dir data/set5 --scale 4 --epochs 200 --d 64 --s 16 --m 6 --batch_size 128 --patch_size 48 --val_freq 20 --save_dir runs/fsrcnn_div2k"
+eval = "python scripts/eval.py --data_dir data/set14 --scale 4 --weights runs/fsrcnn_t91/best.ckpt"
+infer = "python scripts/infer.py --image data/test.png --scale 4 --weights runs/fsrcnn_div2k/best.ckpt --out out_x4.png"
 
 [tool.pdm]
 distribution = false

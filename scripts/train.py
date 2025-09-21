@@ -18,7 +18,10 @@
 # --lr: Learning rate. Default is 1e-3
 # --seed: Random seed for reproducibility. Default is 42
 # --resume: Path to checkpoint to resume training from. Default is "" (no resume)
-
+# --val_freq: Validation frequency (every N epochs). Default is 10
+# --pretrained: Path to pretrained weights for transfer learning. Default is "" (no transfer learning)
+# --cache_images: Cache images in memory for faster loading (uses more RAM). Default is False
+# --reduce_repeat: Reduce dataset repeat factor for large datasets. Default is 1 (no reduction)
 
 from __future__ import annotations
 import os
@@ -28,6 +31,8 @@ import torch
 import torch.nn as nn
 import random, numpy as np
 from torch.utils.data import DataLoader
+from torch.amp.autocast_mode import autocast
+from torch.amp.grad_scaler import GradScaler
 from tqdm import tqdm
 from rich import print
 
@@ -53,7 +58,13 @@ def seed_everything(seed: int = 42) -> None:
 
 
 def make_loader(
-    path: str, scale: int, patch: int | None, batch: int, shuffle: bool, repeat: int = 1
+    path: str,
+    scale: int,
+    patch: int | None,
+    batch: int,
+    shuffle: bool,
+    repeat: int = 1,
+    cache: bool = False,
 ) -> DataLoader:
     """
     Create a PyTorch DataLoader for SRFolderDataset.
@@ -67,9 +78,16 @@ def make_loader(
     Returns:
         DataLoader: PyTorch DataLoader instance.
     """
-    ds = SRFolderDataset(path, scale=scale, patch_size=patch, repeat=repeat)
+    ds = SRFolderDataset(
+        path, scale=scale, patch_size=patch, repeat=repeat, cache_images=cache
+    )
     return DataLoader(
-        ds, batch_size=batch, shuffle=shuffle, num_workers=4, pin_memory=True
+        ds,
+        batch_size=batch,
+        shuffle=shuffle,
+        num_workers=8,
+        pin_memory=True,
+        persistent_workers=True,
     )
 
 
@@ -79,6 +97,7 @@ def train_one_epoch(
     loader: DataLoader,
     device: torch.device,
     criterion: nn.Module,
+    scaler: GradScaler,
 ) -> float:
     """
     Train for one epoch and return average loss.
@@ -96,15 +115,17 @@ def train_one_epoch(
     pbar = tqdm(loader, desc="train", leave=False)
 
     for batch in pbar:
-        lr: torch.Tensor = batch["lr"].to(device)  # [B,1,h,w]
-        hr: torch.Tensor = batch["hr"].to(device)  # [B,1,H,W]
-
-        sr = model(lr)
-        loss = criterion(sr, hr)
-
+        lr: torch.Tensor = batch["lr"].to(device, non_blocking=True)  # [B,1,h,w]
+        hr: torch.Tensor = batch["hr"].to(device, non_blocking=True)  # [B,1,H,W]
         optim.zero_grad(set_to_none=True)
-        loss.backward()
-        optim.step()
+
+        with autocast("cuda"):
+            sr = model(lr)
+            loss = criterion(sr, hr)
+
+        scaler.scale(loss).backward()
+        scaler.step(optim)
+        scaler.update()
 
         running += loss.item() * lr.size(0)
         pbar.set_postfix(loss=f"{loss.item():.4f}")
@@ -171,10 +192,29 @@ def main() -> None:
     parser.add_argument("--lr", type=float, default=1e-3)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--resume", type=str, default="")
+    parser.add_argument(
+        "--pretrained",
+        type=str,
+        default="",
+        help="Path to pretrained weights for transfer learning",
+    )
+    parser.add_argument(
+        "--val_freq", type=int, default=10, help="Validation frequency (every N epochs)"
+    )
+    parser.add_argument(
+        "--cache_images",
+        action="store_true",
+        help="Cache images in memory (faster but uses more RAM)",
+    )
+    parser.add_argument(
+        "--reduce_repeat",
+        type=int,
+        default=1,
+        help="Reduce dataset repeat factor for large datasets",
+    )
     args = parser.parse_args()
 
     os.makedirs(args.save_dir, exist_ok=True)
-
     seed_everything(args.seed)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -185,11 +225,17 @@ def main() -> None:
 
     criterion = nn.MSELoss()  # MSE loss function to be used for training
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)  # Adam optimizer
+    scaler = GradScaler()
 
-    # Learning rate scheduler: reduce LR by half at 50% and 80% of total epochs
+    # Learning rate scheduler: reduce LR by half at 40%, 60%, 80%, 90% of total epochs
     scheduler = torch.optim.lr_scheduler.MultiStepLR(
         optimizer,
-        milestones=[int(args.epochs * 0.5), int(args.epochs * 0.8)],
+        milestones=[
+            int(args.epochs * 0.4),
+            int(args.epochs * 0.6),
+            int(args.epochs * 0.8),
+            int(args.epochs * 0.9),
+        ],
         gamma=0.5,
     )
 
@@ -199,6 +245,13 @@ def main() -> None:
         optimizer.load_state_dict(checkpoint["optim"])
         scheduler.load_state_dict(checkpoint["sched"])
         print(f"Resumed from {args.resume}")
+    elif args.pretrained and os.path.isfile(args.pretrained):
+        checkpoint = torch.load(args.pretrained, map_location=device)
+        model.load_state_dict(checkpoint["model"])
+        print(
+            f"[bold yellow]Loaded pretrained weights from[/bold yellow] {args.pretrained}"
+        )
+        print(f"[bold yellow]Starting transfer learning with reduced LR[/bold yellow]")
 
     train_loader = make_loader(
         args.train_dir,
@@ -206,30 +259,64 @@ def main() -> None:
         args.patch_size,
         args.batch_size,
         shuffle=True,
-        repeat=8,
+        repeat=args.reduce_repeat,
+        cache=args.cache_images,
     )
     val_loader = make_loader(args.val_dir, args.scale, None, batch=1, shuffle=False)
 
+    # Check if validation dataset is empty
+    if len(val_loader.dataset) == 0:  # type: ignore
+        print(
+            f"[bold red]Error:[/bold red] No validation images found in {args.val_dir}"
+        )
+        print(
+            "Please check your validation directory path and ensure it contains images."
+        )
+        return
+
     test_loader = None
     if args.test_dir and os.path.isdir(args.test_dir):
-        test_loader = make_loader(args.test_dir, args.scale, None, batch=1, shuffle=False)
+        test_loader = make_loader(
+            args.test_dir, args.scale, None, batch=1, shuffle=False
+        )
+        if len(test_loader.dataset) == 0:  # type: ignore
+            print(
+                f"[bold yellow]Warning:[/bold yellow] No test images found in {args.test_dir}"
+            )
+            test_loader = None
+
+    print(f"[bold green]Training images:[/bold green] {len(train_loader.dataset)}")  # type: ignore
+    print(f"[bold green]Validation images:[/bold green] {len(val_loader.dataset)}")  # type: ignore
+
+    if test_loader:
+        print(f"[bold green]Test images:[/bold green] {len(test_loader.dataset)}")  # type: ignore
 
     best_psnr = -1.0
 
     for epoch in range(1, args.epochs + 1):
-        loss = train_one_epoch(model, optimizer, train_loader, device, criterion)
-        psnr_val, ssim_val = validate(model, val_loader, device, args.scale)
+        loss = train_one_epoch(
+            model, optimizer, train_loader, device, criterion, scaler
+        )
         scheduler.step()
 
-        # Evaluate on test set if provided
-        test_info = ""
-        if test_loader is not None:
-            psnr_test, ssim_test = validate(model, test_loader, device, args.scale)
-            test_info = f" test_psnr={psnr_test:.2f} test_ssim={ssim_test:.4f}"
+        # Validate less frequently to speed up training
+        if epoch % args.val_freq == 0 or epoch == args.epochs:
+            psnr_val, ssim_val = validate(model, val_loader, device, args.scale)
 
-        print(
-            f"[Epoch {epoch:03d}] loss={loss:.4f} val_psnr={psnr_val:.2f} val_ssim={ssim_val:.4f}{test_info} lr={scheduler.get_last_lr()[0]:.2e}"
-        )
+            # Evaluate on test set if provided
+            test_info = ""
+            if test_loader is not None:
+                psnr_test, ssim_test = validate(model, test_loader, device, args.scale)
+                test_info = f" test_psnr={psnr_test:.2f} test_ssim={ssim_test:.4f}"
+
+            print(
+                f"[Epoch {epoch:03d}] loss={loss:.4f} val_psnr={psnr_val:.2f} val_ssim={ssim_val:.4f}{test_info} lr={scheduler.get_last_lr()[0]:.2e}"
+            )
+        else:
+            psnr_val = -1.0  # Skip validation
+            print(
+                f"[Epoch {epoch:03d}] loss={loss:.4f} lr={scheduler.get_last_lr()[0]:.2e}"
+            )
 
         # Save checkpoint
         checkpoint = {
@@ -242,7 +329,7 @@ def main() -> None:
 
         torch.save(checkpoint, os.path.join(args.save_dir, "last.ckpt"))
 
-        if psnr_val > best_psnr:
+        if psnr_val > best_psnr and psnr_val > 0:
             best_psnr = psnr_val
             torch.save(checkpoint, os.path.join(args.save_dir, "best.ckpt"))
             print(f"[bold cyan]New best PSNR[/bold cyan]: {best_psnr:.2f} dB")
