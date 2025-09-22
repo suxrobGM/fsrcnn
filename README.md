@@ -213,7 +213,7 @@ fsrcnn/
 The training script supports various parameters for customization:
 
 ```bash
-python scripts/train.py --train_dir <path> --val_dir <path> [options]
+pdm run python scripts/train.py --train_dir <path> --val_dir <path> [options]
 ```
 
 **Parameters:**
@@ -258,7 +258,7 @@ python scripts/train.py --train_dir data/div2k/train --val_dir data/div2k/val --
 Evaluate a trained model on a test dataset:
 
 ```bash
-python scripts/eval.py --data_dir <path> --weights <checkpoint_path> [options]
+pdm run python scripts/eval.py --data_dir <path> --weights <checkpoint_path> [options]
 ```
 
 **Parameters:**
@@ -281,7 +281,7 @@ pdm run eval
 Run inference on images:
 
 ```bash
-python scripts/infer.py --input_dir <path> --weights <checkpoint_path> [options]
+pdm run python scripts/infer.py --input_dir <path> --weights <checkpoint_path> [options]
 ```
 
 **Parameters:**
