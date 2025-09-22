@@ -9,3 +9,5 @@ runs/
 # DIV2K dataset is large to commit
 data/div2k/*
 !data/div2k/.gitkeep
+
+output/

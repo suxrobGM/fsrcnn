@@ -223,7 +223,7 @@ def main() -> None:
     model = FSRCNN(scale=args.scale, d=args.d, s=args.s, m=args.m)
     model.to(device)
 
-    criterion = nn.MSELoss()  # MSE loss function to be used for training
+    criterion = nn.L1Loss()  # L1 loss function to be used for training
     optimizer = torch.optim.Adam(model.parameters(), lr=args.lr)  # Adam optimizer
     scaler = GradScaler()
 
@@ -239,12 +239,15 @@ def main() -> None:
         gamma=0.5,
     )
 
+    start_epoch = 1
+
     if args.resume and os.path.isfile(args.resume):
         checkpoint = torch.load(args.resume, map_location=device)
         model.load_state_dict(checkpoint["model"])
         optimizer.load_state_dict(checkpoint["optim"])
         scheduler.load_state_dict(checkpoint["sched"])
-        print(f"Resumed from {args.resume}")
+        start_epoch = checkpoint["epoch"] + 1
+        print(f"Resumed from {args.resume} at epoch {checkpoint['epoch']}")
     elif args.pretrained and os.path.isfile(args.pretrained):
         checkpoint = torch.load(args.pretrained, map_location=device)
         model.load_state_dict(checkpoint["model"])
@@ -293,7 +296,7 @@ def main() -> None:
 
     best_psnr = -1.0
 
-    for epoch in range(1, args.epochs + 1):
+    for epoch in range(start_epoch, args.epochs + 1):
         loss = train_one_epoch(
             model, optimizer, train_loader, device, criterion, scaler
         )
