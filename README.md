@@ -131,6 +131,22 @@ For detailed methodology, experiments, and analysis, see: [Project Report](docs/
 - PSNR: +1.78 dB (6.4% improvement)
 - SSIM: +0.0507 (6.3% improvement)
 
+### Visual Results
+
+Below are sample super-resolution results comparing our FSRCNN implementation with bicubic interpolation:
+
+#### Bird (Set5 Dataset)
+| Original (LR) | FSRCNN (4x) | Bicubic (4x) |
+|:-------------:|:-----------:|:------------:|
+| ![Bird Original](docs/images/bird_org.png) | ![Bird FSRCNN](docs/images/bird_sr_x4.png) | ![Bird Bicubic](docs/images/bird_sr_x4_bicubic.png) |
+| **Input** | **PSNR: 31.28 dB, SSIM: 0.9158** | **PSNR: 29.10 dB, SSIM: 0.8737** |
+
+#### Comic (Set14 Dataset)
+| Original (LR) | FSRCNN (4x) | Bicubic (4x) |
+|:-------------:|:-----------:|:------------:|
+| ![Comic Original](docs/images/comic_org.png) | ![Comic FSRCNN](docs/images/comic_sr_x4.png) | ![Comic Bicubic](docs/images/comic_sr_x4_bicubic.png) |
+| **Input** | **PSNR: 21.29 dB, SSIM: 0.6884** | **PSNR: 20.46 dB, SSIM: 0.6125** |
+
 ## Installation
 
 ### Prerequisites
