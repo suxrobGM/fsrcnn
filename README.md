@@ -135,7 +135,7 @@ For detailed methodology, experiments, and analysis, see: [Project Report](docs/
 
 ### Prerequisites
 
-- Python 3.13. Make sure Python and pip are installed. You can download Python from [python.org](https://www.python.org/downloads/).
+- Python 3.13. You can download Python from [python.org](https://www.python.org/downloads/).
 - PDM (Python Dependency Manager).
 - NVIDIA GPU with CUDA support (recommended).
 
