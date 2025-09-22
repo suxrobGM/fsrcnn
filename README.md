@@ -160,7 +160,7 @@ Below are sample super-resolution results comparing our FSRCNN implementation wi
 1. Clone the repository:
 
 ```bash
-git clone <repository-url>
+git clone https://github.com/suxrobGM/fsrcnn
 cd fsrcnn
 ```
 
