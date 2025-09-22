@@ -27,9 +27,9 @@ dev = [
 [tool.pdm.scripts]
 train = "python scripts/train.py --train_dir data/t91 --val_dir data/set14 --test_dir data/set5 --scale 4 --epochs 1000 --batch_size 128 --patch_size 32 --val_freq 20 --save_dir runs/fsrcnn_t91"
 train_d64_s16_m6 = "python scripts/train.py --train_dir data/t91 --val_dir data/set14 --test_dir data/set5 --scale 4 --epochs 1000 --d 64 --s 16 --m 6 --batch_size 128 --patch_size 32 --val_freq 20 --save_dir runs/fsrcnn_t91_d64_s16_m6"
-train_div2k = "python scripts/train.py --train_dir data/div2k/train --val_dir data/div2k/val --test_dir data/set14 --scale 4 --epochs 5000 --d 64 --s 16 --m 6 --batch_size 128 --patch_size 64 --val_freq 20 --save_dir runs/fsrcnn_div2k --resume runs/fsrcnn_div2k/last.ckpt"
-eval = "python scripts/eval.py --data_dir data/set14 --scale 4 --include_bicubic --weights runs/fsrcnn_div2k_copy/best.ckpt"
-infer = "python scripts/infer.py --input_dir data/set14 --scale 4 --save_bicubic --weights runs/fsrcnn_div2k/best.ckpt"
+train_div2k = "python scripts/train.py --train_dir data/div2k/train --val_dir data/div2k/val --test_dir data/set14 --scale 4 --epochs 5000 --d 64 --s 16 --m 6 --batch_size 128 --patch_size 64 --val_freq 20 --save_dir runs/fsrcnn_div2k"
+eval = "python scripts/eval.py --data_dir data/set14 --scale 4 --include_bicubic --weights pretrained/fsrcnn_div2k.ckpt"
+infer = "python scripts/infer.py --input_dir data/set14 --scale 4 --save_bicubic --weights pretrained/fsrcnn_div2k.ckpt"
 
 [tool.pdm]
 distribution = false
