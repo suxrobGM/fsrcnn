@@ -2,12 +2,6 @@
 
 Implementation of the FSRCNN model for single image super-resolution based on the paper ["Accelerating the Super-Resolution Convolutional Neural Network"](https://arxiv.org/pdf/1608.00367) by Chao Dong, Chen Change Loy, and Xiaoou Tang.
 
-## Author
-
-- **Sukhrobbek Ilyosbekov**
-- CS 7180 Advanced Perception
-- Date: 2025-09-20
-
 ## Introduction
 
 Single image super-resolution (SISR) is a fundamental computer vision task that aims to reconstruct high-resolution (HR) images from low-resolution (LR) inputs. This project implements FSRCNN, an accelerated version of the pioneering SRCNN model that addresses the computational efficiency limitations of its predecessor. The original SRCNN model was introduced in the paper ["Image Super-Resolution Using Deep Convolutional Networks"](https://arxiv.org/pdf/1501.00092) by Chao Dong, Chen Change Loy, Kaiming He, and Xiaoou Tang.
@@ -274,7 +268,8 @@ python scripts/infer.py --input_dir <path> --weights <checkpoint_path> [options]
 
 **Parameters:**
 
-- `--input_dir`: Path to input images (required)
+- `--image`: Path to a single input image (optional, mutually exclusive with `--input_dir`)
+- `--input_dir`: Path to input images directory (required if `--image` not provided)
 - `--weights`: Path to model checkpoint (required)
 - `--scale`: Upscale factor (2, 3, 4) (default: 4)
 - `--output_dir`: Directory to save output images (default: "output")
@@ -285,6 +280,11 @@ python scripts/infer.py --input_dir <path> --weights <checkpoint_path> [options]
 ```bash
 pdm run infer
 ```
+
+## Author
+
+- **Sukhrobbek Ilyosbekov**
+- CS 7180 Advanced Perception
 
 ## License
 
