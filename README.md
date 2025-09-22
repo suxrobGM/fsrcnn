@@ -172,6 +172,8 @@ url = "https://download.pytorch.org/whl/cpu"
 verify_ssl = true
 ```
 
+3. (Optional) If you want to train on the DIV2K dataset, download it from [DIV2K Dataset](https://www.kaggle.com/datasets/soumikrakshit/div2k-high-resolution-images) and place the `DIV2K_train_HR` and `DIV2K_valid_HR` folders inside the `data/div2k/train` and `data/div2k/val` directories respectively. There is a pretrained model available in the `pretrained` folder if you want to skip training. The `pretrained/fsrcnn_div2k.ckpt` file contains weights trained on the DIV2K dataset.
+
 ## Project Structure
 
 ```text
